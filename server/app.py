@@ -25,14 +25,16 @@ def index():
 @app.route("/restaurants")
 def get_restaurants():
     restaurants = Restaurant.query.all()
-    return jsonify({"restaurants": [restaurant.to_dict() for restaurant in restaurants]})
+    return jsonify([restaurant.to_dict() for restaurant in restaurants])
 
 @app.route("/restaurants/<int:id>")
 def get_restaurant(id):
     restaurant = Restaurant.query.get(id)
     if restaurant:
-        return jsonify(restaurant.to_dict())
+        # Use to_dict with include_pizzas=True to include restaurant_pizzas in the response
+        return jsonify(restaurant.to_dict(include_pizzas=True))
     return jsonify({"error": "Restaurant not found"}), 404
+
 
 @app.route("/restaurants/<int:id>", methods=["DELETE"])
 def delete_restaurant(id):
@@ -46,12 +48,16 @@ def delete_restaurant(id):
 @app.route("/pizzas")
 def get_pizzas():
     pizzas = Pizza.query.all()
-    return jsonify({"pizzas": [pizza.to_dict() for pizza in pizzas]})
+    return jsonify([pizza.to_dict() for pizza in pizzas])
 
 @app.route("/restaurant_pizzas", methods=["POST"])
 def create_restaurant_pizza():
     data = request.json
     try:
+        # Validation for price
+        if not (1 <= data["price"] <= 30):
+            raise ValueError("Price must be between 1 and 30.")
+        
         restaurant_pizza = RestaurantPizza(
             price=data["price"],
             restaurant_id=data["restaurant_id"],
@@ -60,8 +66,9 @@ def create_restaurant_pizza():
         db.session.add(restaurant_pizza)
         db.session.commit()
         return jsonify(restaurant_pizza.to_dict()), 201
+    except ValueError as e:
+        return jsonify({"errors": ["validation errors"]}), 400
     except Exception as e:
-        return jsonify({"errors": [str(e)]}), 400
+        return jsonify({"errors": ["validation errors"]}), 400
 
-if __name__ == "__main__":
-    app.run(port=5555, debug=True)
+
